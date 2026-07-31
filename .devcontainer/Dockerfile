@@ -1,6 +1,6 @@
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
-ARG FLUTTER_VERSION=3.24.5
+ARG FLUTTER_VERSION=3.32.8
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
