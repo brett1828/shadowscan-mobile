@@ -11,7 +11,7 @@
       "onAutoForward": "openBrowser"
     }
   },
-  "postCreateCommand": "flutter config --enable-web && flutter pub get",
+  "postCreateCommand": "sed -i 's/withValues(alpha: \\.15)/withOpacity(.15)/g; s/withValues(alpha: \\.25)/withOpacity(.25)/g' lib/main.dart && flutter config --enable-web && flutter pub get",
   "customizations": {
     "vscode": {
       "extensions": [
