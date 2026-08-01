@@ -19,4 +19,4 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/qsb_logo.jpg
+    - assets/images/qsb_logo.png
