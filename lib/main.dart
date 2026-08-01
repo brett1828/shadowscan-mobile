@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(const ShadowScanApp());
 
 const _red = Color(0xFFE31B23);
 const _surface = Color(0xFF12161C);
+const _background = Color(0xFF07090D);
+const _retakeWindow = Duration(days: 30);
 
 class ShadowScanApp extends StatelessWidget {
   const ShadowScanApp({super.key});
@@ -15,7 +18,7 @@ class ShadowScanApp extends StatelessWidget {
       title: 'ShadowScan Mobile',
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF07090D),
+        scaffoldBackgroundColor: _background,
         colorScheme: ColorScheme.fromSeed(
           seedColor: _red,
           brightness: Brightness.dark,
@@ -35,27 +38,78 @@ class ShadowScanApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const SplashScreen(),
+      home: const AppBootstrap(),
     );
+  }
+}
+
+class AppBootstrap extends StatefulWidget {
+  const AppBootstrap({super.key});
+
+  @override
+  State<AppBootstrap> createState() => _AppBootstrapState();
+}
+
+class _AppBootstrapState extends State<AppBootstrap> {
+  bool _loading = true;
+  AssessmentRecord? _record;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final score = prefs.getInt('assessment_score');
+    final completedAt = prefs.getString('assessment_completed_at');
+    final answers = prefs.getStringList('assessment_answers');
+
+    if (score != null && completedAt != null && answers != null) {
+      _record = AssessmentRecord(
+        score: score,
+        answers: answers.map(int.parse).toList(),
+        completedAt: DateTime.parse(completedAt),
+      );
+    }
+
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: _red)),
+      );
+    }
+
+    return _record == null
+        ? const SplashScreen()
+        : DashboardScreen(record: _record!);
   }
 }
 
 class QsbLogo extends StatelessWidget {
   const QsbLogo({super.key, this.size = 190});
+
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset(
-      'assets/images/qsb_logo.png',
+    return SizedBox(
       width: size,
       height: size,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
-      errorBuilder: (_, error, __) => SizedBox(
-        width: size,
-        height: size,
-        child: const Icon(Icons.shield_outlined, color: _red, size: 72),
+      child: Image.asset(
+        'assets/images/qsb_logo.png',
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) => const Icon(
+          Icons.shield_outlined,
+          color: _red,
+          size: 72,
+        ),
       ),
     );
   }
@@ -73,15 +127,23 @@ class SplashScreen extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(),
-              const QsbLogo(size: 240),
-              const SizedBox(height: 22),
+              const QsbLogo(size: 280),
+              const SizedBox(height: 18),
               const Text(
                 'SHADOWSCAN',
-                style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 2),
+                style: TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
               ),
               const Text(
                 'MOBILE',
-                style: TextStyle(fontSize: 16, letterSpacing: 8, color: Colors.white70),
+                style: TextStyle(
+                  fontSize: 16,
+                  letterSpacing: 8,
+                  color: Colors.white70,
+                ),
               ),
               const SizedBox(height: 18),
               const Text(
@@ -98,7 +160,10 @@ class SplashScreen extends StatelessWidget {
                 child: const Text('GET STARTED'),
               ),
               const SizedBox(height: 14),
-              const Text('Quantum Shadow BlackOps', style: TextStyle(color: Colors.white54)),
+              const Text(
+                'Quantum Shadow BlackOps',
+                style: TextStyle(color: Colors.white54),
+              ),
             ],
           ),
         ),
@@ -117,7 +182,7 @@ class PrivacyScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Center(child: QsbLogo(size: 130)),
+          const Center(child: QsbLogo(size: 150)),
           const SizedBox(height: 18),
           const _InfoTile(
             icon: Icons.lock_outline,
@@ -140,9 +205,7 @@ class PrivacyScreen extends StatelessWidget {
           const Card(
             child: Padding(
               padding: EdgeInsets.all(16),
-              child: Text(
-                'Some Wi-Fi and device checks may be limited on iPhone because of Apple platform restrictions.',
-              ),
+              child: Text('Some Wi-Fi and device checks may be limited on iPhone because of Apple platform restrictions.'),
             ),
           ),
           const SizedBox(height: 24),
@@ -161,6 +224,7 @@ class PrivacyScreen extends StatelessWidget {
 
 class _InfoTile extends StatelessWidget {
   const _InfoTile({required this.icon, required this.title, required this.body});
+
   final IconData icon;
   final String title;
   final String body;
@@ -182,6 +246,7 @@ class _InfoTile extends StatelessWidget {
 
 class AssessmentQuestion {
   const AssessmentQuestion(this.title, this.detail, this.options, this.points);
+
   final String title;
   final String detail;
   final List<String> options;
@@ -199,7 +264,10 @@ const _questions = <AssessmentQuestion>[
 ];
 
 class AssessmentScreen extends StatefulWidget {
-  const AssessmentScreen({super.key});
+  const AssessmentScreen({super.key, this.isRetake = false});
+
+  final bool isRetake;
+
   @override
   State<AssessmentScreen> createState() => _AssessmentScreenState();
 }
@@ -208,35 +276,59 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
   int _index = 0;
   final List<int?> _answers = List<int?>.filled(_questions.length, null);
 
-  void _next() {
+  Future<void> _next() async {
     if (_answers[_index] == null) return;
+
     if (_index < _questions.length - 1) {
       setState(() => _index++);
       return;
     }
+
     final score = List.generate(
       _questions.length,
       (i) => _questions[i].points[_answers[i]!],
     ).fold<int>(0, (a, b) => a + b);
-    Navigator.pushReplacement(
+
+    final record = AssessmentRecord(
+      score: score,
+      answers: _answers.cast<int>(),
+      completedAt: DateTime.now(),
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('assessment_score', score);
+    await prefs.setStringList(
+      'assessment_answers',
+      record.answers.map((value) => '$value').toList(),
+    );
+    await prefs.setString(
+      'assessment_completed_at',
+      record.completedAt.toIso8601String(),
+    );
+
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(
-        builder: (_) => DashboardScreen(score: score, answers: _answers.cast<int>()),
-      ),
+      MaterialPageRoute(builder: (_) => DashboardScreen(record: record)),
+      (_) => false,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final question = _questions[_index];
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Cybersecurity assessment')),
+      appBar: AppBar(title: Text(widget.isRetake ? 'Retake assessment' : 'Cybersecurity assessment')),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LinearProgressIndicator(value: (_index + 1) / _questions.length, color: _red),
+            LinearProgressIndicator(
+              value: (_index + 1) / _questions.length,
+              color: _red,
+            ),
             const SizedBox(height: 10),
             Text('${_index + 1} of ${_questions.length}'),
             const SizedBox(height: 28),
@@ -262,7 +354,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
             const Spacer(),
             FilledButton(
               onPressed: _answers[_index] == null ? null : _next,
-              child: Text(_index == _questions.length - 1 ? 'SEE MY SHADOW SCORE' : 'NEXT'),
+              child: Text(_index == _questions.length - 1 ? 'SAVE MY SHADOW SCORE' : 'NEXT'),
             ),
           ],
         ),
@@ -271,10 +363,21 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
   }
 }
 
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key, required this.score, required this.answers});
+class AssessmentRecord {
+  const AssessmentRecord({required this.score, required this.answers, required this.completedAt});
+
   final int score;
   final List<int> answers;
+  final DateTime completedAt;
+
+  DateTime get nextRetake => completedAt.add(_retakeWindow);
+  bool get canRetake => !DateTime.now().isBefore(nextRetake);
+}
+
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key, required this.record});
+
+  final AssessmentRecord record;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -286,23 +389,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final findings = <String>[];
-    for (var i = 0; i < widget.answers.length; i++) {
-      if (_questions[i].points[widget.answers[i]] < _questions[i].points.first * .75) {
+    for (var i = 0; i < widget.record.answers.length; i++) {
+      if (_questions[i].points[widget.record.answers[i]] < (_questions[i].points.first * .75)) {
         findings.add(_questions[i].title);
       }
     }
 
     final pages = [
-      _HomePage(score: widget.score, findings: findings),
+      _HomePage(score: widget.record.score, findings: findings),
       const _PlaceholderPage(icon: Icons.public, title: 'Exposure', message: 'Verified email breach monitoring will be connected in a later backend phase.'),
       const _PlaceholderPage(icon: Icons.wifi, title: 'Wi-Fi safety', message: 'Platform-permitted network safety checks will be implemented here.'),
       const _PlaceholderPage(icon: Icons.school_outlined, title: 'Learn', message: 'Daily tips, awareness lessons, and micro-quizzes will live here.'),
+      _SettingsPage(record: widget.record),
     ];
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Row(
-          children: [QsbLogo(size: 44), SizedBox(width: 10), Text('ShadowScan')],
+          children: [
+            QsbLogo(size: 54),
+            SizedBox(width: 12),
+            Text('ShadowScan'),
+          ],
         ),
       ),
       body: IndexedStack(index: _selectedIndex, children: pages),
@@ -315,6 +424,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           NavigationDestination(icon: Icon(Icons.public), label: 'Exposure'),
           NavigationDestination(icon: Icon(Icons.wifi), label: 'Wi-Fi'),
           NavigationDestination(icon: Icon(Icons.school_outlined), label: 'Learn'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
       ),
     );
@@ -323,10 +433,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 class _HomePage extends StatelessWidget {
   const _HomePage({required this.score, required this.findings});
+
   final int score;
   final List<String> findings;
 
-  String get risk => score >= 85 ? 'Low risk' : score >= 65 ? 'Moderate risk' : score >= 45 ? 'Elevated risk' : 'High risk';
+  String get risk {
+    if (score >= 85) return 'Low risk';
+    if (score >= 65) return 'Moderate risk';
+    if (score >= 45) return 'Elevated risk';
+    return 'High risk';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -419,8 +535,62 @@ class _HomePage extends StatelessWidget {
   }
 }
 
+class _SettingsPage extends StatelessWidget {
+  const _SettingsPage({required this.record});
+
+  final AssessmentRecord record;
+
+  String _date(DateTime value) => '${value.month}/${value.day}/${value.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(18),
+      children: [
+        const Text('Settings', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Assessment status', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 12),
+                Text('Last assessment: ${_date(record.completedAt)}'),
+                const SizedBox(height: 6),
+                Text('Next assessment available: ${_date(record.nextRetake)}'),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: record.canRetake
+                      ? () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const AssessmentScreen(isRetake: true)),
+                          )
+                      : null,
+                  icon: const Icon(Icons.refresh),
+                  label: Text(record.canRetake ? 'RETAKE ASSESSMENT' : 'RETAKE AVAILABLE IN 30 DAYS'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        const Card(
+          child: ListTile(
+            leading: Icon(Icons.privacy_tip_outlined, color: _red),
+            title: Text('Privacy'),
+            subtitle: Text('Assessment results are currently stored only on this device.'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _PlaceholderPage extends StatelessWidget {
   const _PlaceholderPage({required this.icon, required this.title, required this.message});
+
   final IconData icon;
   final String title;
   final String message;
