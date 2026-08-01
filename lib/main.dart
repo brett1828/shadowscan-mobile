@@ -42,18 +42,20 @@ class ShadowScanApp extends StatelessWidget {
 
 class QsbLogo extends StatelessWidget {
   const QsbLogo({super.key, this.size = 190});
-
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: Image.asset(
-        'assets/images/qsb_logo.jpg',
+    return Image.asset(
+      'assets/images/qsb_logo.png',
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+      errorBuilder: (_, error, __) => SizedBox(
         width: size,
         height: size,
-        fit: BoxFit.contain,
+        child: const Icon(Icons.shield_outlined, color: _red, size: 72),
       ),
     );
   }
@@ -71,23 +73,15 @@ class SplashScreen extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(),
-              const QsbLogo(size: 220),
+              const QsbLogo(size: 240),
               const SizedBox(height: 22),
               const Text(
                 'SHADOWSCAN',
-                style: TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                ),
+                style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 2),
               ),
               const Text(
                 'MOBILE',
-                style: TextStyle(
-                  fontSize: 16,
-                  letterSpacing: 8,
-                  color: Colors.white70,
-                ),
+                style: TextStyle(fontSize: 16, letterSpacing: 8, color: Colors.white70),
               ),
               const SizedBox(height: 18),
               const Text(
@@ -104,10 +98,7 @@ class SplashScreen extends StatelessWidget {
                 child: const Text('GET STARTED'),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Quantum Shadow BlackOps',
-                style: TextStyle(color: Colors.white54),
-              ),
+              const Text('Quantum Shadow BlackOps', style: TextStyle(color: Colors.white54)),
             ],
           ),
         ),
@@ -126,7 +117,7 @@ class PrivacyScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Center(child: QsbLogo(size: 115)),
+          const Center(child: QsbLogo(size: 130)),
           const SizedBox(height: 18),
           const _InfoTile(
             icon: Icons.lock_outline,
@@ -169,12 +160,7 @@ class PrivacyScreen extends StatelessWidget {
 }
 
 class _InfoTile extends StatelessWidget {
-  const _InfoTile({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
-
+  const _InfoTile({required this.icon, required this.title, required this.body});
   final IconData icon;
   final String title;
   final String body;
@@ -196,7 +182,6 @@ class _InfoTile extends StatelessWidget {
 
 class AssessmentQuestion {
   const AssessmentQuestion(this.title, this.detail, this.options, this.points);
-
   final String title;
   final String detail;
   final List<String> options;
@@ -215,7 +200,6 @@ const _questions = <AssessmentQuestion>[
 
 class AssessmentScreen extends StatefulWidget {
   const AssessmentScreen({super.key});
-
   @override
   State<AssessmentScreen> createState() => _AssessmentScreenState();
 }
@@ -226,24 +210,18 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
 
   void _next() {
     if (_answers[_index] == null) return;
-
     if (_index < _questions.length - 1) {
       setState(() => _index++);
       return;
     }
-
     final score = List.generate(
       _questions.length,
       (i) => _questions[i].points[_answers[i]!],
     ).fold<int>(0, (a, b) => a + b);
-
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => DashboardScreen(
-          score: score,
-          answers: _answers.cast<int>(),
-        ),
+        builder: (_) => DashboardScreen(score: score, answers: _answers.cast<int>()),
       ),
     );
   }
@@ -251,7 +229,6 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
   @override
   Widget build(BuildContext context) {
     final question = _questions[_index];
-
     return Scaffold(
       appBar: AppBar(title: const Text('Cybersecurity assessment')),
       body: Padding(
@@ -259,40 +236,33 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LinearProgressIndicator(
-              value: (_index + 1) / _questions.length,
-              color: _red,
-            ),
+            LinearProgressIndicator(value: (_index + 1) / _questions.length, color: _red),
             const SizedBox(height: 10),
             Text('${_index + 1} of ${_questions.length}'),
             const SizedBox(height: 28),
-            Text(
-              question.title,
-              style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w800),
-            ),
+            Text(question.title, style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w800)),
             const SizedBox(height: 10),
             Text(question.detail, style: const TextStyle(color: Colors.white70)),
             const SizedBox(height: 24),
             ...List.generate(
               question.options.length,
-              (optionIndex) => Card(
-                child: RadioListTile<int>(
-                  value: optionIndex,
-                  groupValue: _answers[_index],
-                  activeColor: _red,
-                  title: Text(question.options[optionIndex]),
-                  onChanged: (value) => setState(() => _answers[_index] = value),
+              (optionIndex) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Card(
+                  child: RadioListTile<int>(
+                    value: optionIndex,
+                    groupValue: _answers[_index],
+                    activeColor: _red,
+                    title: Text(question.options[optionIndex]),
+                    onChanged: (value) => setState(() => _answers[_index] = value),
+                  ),
                 ),
               ),
             ),
             const Spacer(),
             FilledButton(
               onPressed: _answers[_index] == null ? null : _next,
-              child: Text(
-                _index == _questions.length - 1
-                    ? 'SEE MY SHADOW SCORE'
-                    : 'NEXT',
-              ),
+              child: Text(_index == _questions.length - 1 ? 'SEE MY SHADOW SCORE' : 'NEXT'),
             ),
           ],
         ),
@@ -302,12 +272,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
 }
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({
-    super.key,
-    required this.score,
-    required this.answers,
-  });
-
+  const DashboardScreen({super.key, required this.score, required this.answers});
   final int score;
   final List<int> answers;
 
@@ -322,48 +287,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final findings = <String>[];
     for (var i = 0; i < widget.answers.length; i++) {
-      if (_questions[i].points[widget.answers[i]] <
-          (_questions[i].points.first * .75)) {
+      if (_questions[i].points[widget.answers[i]] < _questions[i].points.first * .75) {
         findings.add(_questions[i].title);
       }
     }
 
     final pages = [
       _HomePage(score: widget.score, findings: findings),
-      const _PlaceholderPage(
-        icon: Icons.public,
-        title: 'Exposure',
-        message: 'Verified email breach monitoring will be connected in a later backend phase.',
-      ),
-      const _PlaceholderPage(
-        icon: Icons.wifi,
-        title: 'Wi-Fi safety',
-        message: 'Platform-permitted network safety checks will be implemented here.',
-      ),
-      const _PlaceholderPage(
-        icon: Icons.school_outlined,
-        title: 'Learn',
-        message: 'Daily tips, awareness lessons, and micro-quizzes will live here.',
-      ),
+      const _PlaceholderPage(icon: Icons.public, title: 'Exposure', message: 'Verified email breach monitoring will be connected in a later backend phase.'),
+      const _PlaceholderPage(icon: Icons.wifi, title: 'Wi-Fi safety', message: 'Platform-permitted network safety checks will be implemented here.'),
+      const _PlaceholderPage(icon: Icons.school_outlined, title: 'Learn', message: 'Daily tips, awareness lessons, and micro-quizzes will live here.'),
     ];
 
     return Scaffold(
       appBar: AppBar(
         title: const Row(
-          children: [
-            QsbLogo(size: 42),
-            SizedBox(width: 10),
-            Text('ShadowScan'),
-          ],
+          children: [QsbLogo(size: 44), SizedBox(width: 10), Text('ShadowScan')],
         ),
       ),
       body: IndexedStack(index: _selectedIndex, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         indicatorColor: _red.withValues(alpha: .25),
-        onDestinationSelected: (value) {
-          setState(() => _selectedIndex = value);
-        },
+        onDestinationSelected: (value) => setState(() => _selectedIndex = value),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.public), label: 'Exposure'),
@@ -377,26 +323,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 class _HomePage extends StatelessWidget {
   const _HomePage({required this.score, required this.findings});
-
   final int score;
   final List<String> findings;
 
-  String get risk {
-    if (score >= 85) return 'Low risk';
-    if (score >= 65) return 'Moderate risk';
-    if (score >= 45) return 'Elevated risk';
-    return 'High risk';
-  }
+  String get risk => score >= 85 ? 'Low risk' : score >= 65 ? 'Moderate risk' : score >= 45 ? 'Elevated risk' : 'High risk';
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
       children: [
-        const Text(
-          'Your digital-risk posture',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-        ),
+        const Text('Your digital-risk posture', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
         const SizedBox(height: 14),
         Card(
           child: Padding(
@@ -409,19 +346,8 @@ class _HomePage extends StatelessWidget {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      CircularProgressIndicator(
-                        value: score / 100,
-                        strokeWidth: 9,
-                        color: _red,
-                        backgroundColor: Colors.white12,
-                      ),
-                      Text(
-                        '$score',
-                        style: const TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
+                      CircularProgressIndicator(value: score / 100, strokeWidth: 9, color: _red, backgroundColor: Colors.white12),
+                      Text('$score', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
                     ],
                   ),
                 ),
@@ -430,18 +356,9 @@ class _HomePage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Shadow Score',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                      ),
+                      const Text('Shadow Score', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 5),
-                      Text(
-                        risk,
-                        style: const TextStyle(
-                          color: _red,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      Text(risk, style: const TextStyle(color: _red, fontWeight: FontWeight.w700)),
                       const SizedBox(height: 7),
                       const Text('Based on your seven-question personal security assessment.'),
                     ],
@@ -452,10 +369,7 @@ class _HomePage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 18),
-        const Text(
-          'Priority actions',
-          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
-        ),
+        const Text('Priority actions', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
         if (findings.isEmpty)
           const Card(
@@ -471,9 +385,7 @@ class _HomePage extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Card(
                     child: ListTile(
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.warning_amber),
-                      ),
+                      leading: const CircleAvatar(child: Icon(Icons.warning_amber)),
                       title: Text(item),
                       subtitle: const Text('Review this habit to improve your Shadow Score.'),
                     ),
@@ -491,17 +403,11 @@ class _HomePage extends StatelessWidget {
                   children: [
                     Icon(Icons.lightbulb_outline, color: _red),
                     SizedBox(width: 8),
-                    Text(
-                      'Cyber Tip of the Day',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                    ),
+                    Text('Cyber Tip of the Day', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                   ],
                 ),
                 SizedBox(height: 12),
-                Text(
-                  'Never approve an MFA prompt you did not initiate.',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                ),
+                Text('Never approve an MFA prompt you did not initiate.', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
                 SizedBox(height: 8),
                 Text('Deny unexpected prompts, change the affected password, and review recent sign-ins.'),
               ],
@@ -514,12 +420,7 @@ class _HomePage extends StatelessWidget {
 }
 
 class _PlaceholderPage extends StatelessWidget {
-  const _PlaceholderPage({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
+  const _PlaceholderPage({required this.icon, required this.title, required this.message});
   final IconData icon;
   final String title;
   final String message;
@@ -534,10 +435,7 @@ class _PlaceholderPage extends StatelessWidget {
           children: [
             Icon(icon, size: 58, color: _red),
             const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800),
-            ),
+            Text(title, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center),
           ],
