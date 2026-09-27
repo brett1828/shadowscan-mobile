@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'exposure_center.dart';
+import 'exposure_center_v1.dart';
+import 'learn_center.dart';
+import 'wifi_safety_center.dart';
 
 void main() => runApp(const ShadowScanApp());
 
@@ -242,8 +244,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final pages = [
       HomePage(score: widget.record.score, findingIndexes: findingIndexes),
       const ExposureCenter(),
-      const PlaceholderPage(Icons.wifi, 'Wi-Fi safety', 'Platform-permitted network safety checks will be implemented here.'),
-      const LearnPage(),
+      const WifiSafetyCenter(),
+      const LearnCenter(),
       SettingsPage(record: widget.record),
     ];
     return Scaffold(
