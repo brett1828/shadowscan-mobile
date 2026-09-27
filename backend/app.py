@@ -123,6 +123,9 @@ def severity_for(data_classes: list[str]) -> str:
     return "low"
 
 
+init_db()
+
+
 @app.get("/health")
 def health():
     return jsonify({"status": "ok", "service": "shadowscan-v1-backend"})
@@ -198,7 +201,14 @@ def confirm_verification():
             return jsonify({"error": "incorrect_code"}), 401
 
         verified_at = utc_now().isoformat()
-        identity_id = f"id_{hashlib.sha256(row['email'].encode()).hexdigest()[:24]}"
+        existing_identity = connection.execute(
+            "SELECT id FROM verified_identities WHERE email = ?", (row["email"],)
+        ).fetchone()
+        identity_id = (
+            existing_identity["id"]
+            if existing_identity is not None
+            else f"id_{secrets.token_urlsafe(24)}"
+        )
         connection.execute(
             "UPDATE verification_requests SET verified_at = ? WHERE id = ?",
             (verified_at, request_id),
