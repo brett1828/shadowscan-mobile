@@ -183,7 +183,13 @@ class LessonScreen extends StatefulWidget {
 }
 
 class _LessonScreenState extends State<LessonScreen> {
-  late bool _completed = widget.initiallyCompleted;
+  late bool _completed;
+
+  @override
+  void initState() {
+    super.initState();
+    _completed = widget.initiallyCompleted;
+  }
 
   @override
   Widget build(BuildContext context) {
