@@ -45,7 +45,7 @@ class _WifiSafetyCenterState extends State<WifiSafetyCenter> {
     if (_securedNetwork == false) score -= 25;
     if (_autoJoinDisabled == false) score -= 15;
     if (_sensitiveActivityProtected == false) score -= 15;
-    score = score.clamp(0, 100);
+    score = score.clamp(0, 100).toInt();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('wifi_safety_score', score);
