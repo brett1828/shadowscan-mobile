@@ -117,3 +117,10 @@ app.*.symbols
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
+
+# ShadowScan V1 backend secrets and local runtime data
+backend/.env
+backend/.venv/
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
