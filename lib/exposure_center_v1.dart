@@ -113,6 +113,17 @@ class ExposureApi {
     );
   }
 
+  Future<void> deleteIdentity(String identityId) async {
+    final response = await _client
+        .delete(_uri('/api/v1/identities/$identityId'))
+        .timeout(const Duration(seconds: 25));
+
+    if (response.statusCode != 204 && response.statusCode != 404) {
+      final body = _decode(response);
+      throw ExposureApiException(_message(body, 'Unable to remove the monitored email.'));
+    }
+  }
+
   Future<List<ExposureFinding>> scan(String identityId) async {
     final response = await _client
         .post(
@@ -313,6 +324,20 @@ class _ExposureCenterState extends State<ExposureCenter> {
   }
 
   Future<void> _removeIdentity() async {
+    final identityId = _identityId;
+    if (identityId != null) {
+      try {
+        await _api.deleteIdentity(identityId);
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _error = 'The email could not be removed from the server. Try again when the service is available.';
+          });
+        }
+        return;
+      }
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys().where(
           (key) =>
