@@ -114,3 +114,70 @@ The current SQLite implementation is suitable for development and a controlled p
 6. add structured audit logs without verification codes or provider secrets
 7. configure email-domain reputation records: SPF, DKIM, and DMARC
 8. add automated tests and dependency scanning
+
+
+## Railway deployment
+
+The backend is container-ready with `backend/Dockerfile`.
+
+Recommended Railway service settings:
+
+- Source repository: `brett1828/shadowscan-mobile`
+- Branch: `build/onboarding-assessment-branding` while V1 is under development
+- Root Directory: `/backend`
+- Public networking: enabled
+- Healthcheck path: `/health`
+- Start command: use the Dockerfile default
+- Persistent storage: attach a volume if SQLite is retained during pilot testing
+
+Railway injects the `PORT` variable automatically. The container start command already binds Gunicorn to that port.
+
+After environment variables are configured, verify:
+
+```http
+GET /health
+```
+
+Expected:
+
+```json
+{"status":"ok","service":"shadowscan-v1-backend"}
+```
+
+Then verify configuration readiness:
+
+```http
+GET /ready
+```
+
+The service reports only configuration booleans and never returns secrets.
+
+For a public production release, migrate SQLite to a managed database before relying on multiple replicas or ephemeral service storage.
+
+## Required secrets
+
+Enter these directly into the deployment platform's secret/environment-variable UI. Do not commit them to GitHub or paste them into application source.
+
+```text
+OTP_SECRET
+SMTP_HOST
+SMTP_PORT
+SMTP_USERNAME
+SMTP_PASSWORD
+SMTP_FROM
+HIBP_API_KEY
+HIBP_USER_AGENT
+ALLOWED_ORIGIN
+```
+
+`HIBP_USER_AGENT` should identify ShadowScan Mobile and include a QSB contact method.
+
+## Privacy deletion
+
+Removing a monitored email in ShadowScan Mobile now calls the backend deletion endpoint before clearing local state:
+
+```http
+DELETE /api/v1/identities/{identityId}
+```
+
+The backend deletes the verified identity, stored exposure findings, and associated verification requests for that email.
