@@ -131,6 +131,25 @@ def health():
     return jsonify({"status": "ok", "service": "shadowscan-v1-backend"})
 
 
+@app.get("/ready")
+def ready():
+    smtp_ready = all(
+        [
+            os.getenv("SMTP_HOST", ""),
+            os.getenv("SMTP_USERNAME", ""),
+            os.getenv("SMTP_PASSWORD", ""),
+            os.getenv("SMTP_FROM", ""),
+        ]
+    )
+    checks = {
+        "otp": bool(OTP_SECRET),
+        "smtp": smtp_ready,
+        "breachProvider": bool(HIBP_API_KEY),
+    }
+    is_ready = all(checks.values())
+    return jsonify({"status": "ready" if is_ready else "not_ready", "checks": checks}), 200 if is_ready else 503
+
+
 @app.post("/api/v1/verification/request")
 @limiter.limit("5 per hour")
 def request_verification():
@@ -220,6 +239,29 @@ def confirm_verification():
         )
 
     return jsonify({"identityId": identity_id, "email": row["email"], "verified": True})
+
+
+@app.delete("/api/v1/identities/<identity_id>")
+@limiter.limit("10 per hour")
+def delete_identity(identity_id: str):
+    with db() as connection:
+        identity = connection.execute(
+            "SELECT email FROM verified_identities WHERE id = ?", (identity_id,)
+        ).fetchone()
+        if identity is None:
+            return jsonify({"error": "identity_not_found"}), 404
+
+        connection.execute(
+            "DELETE FROM exposure_findings WHERE identity_id = ?", (identity_id,)
+        )
+        connection.execute(
+            "DELETE FROM verification_requests WHERE email = ?", (identity["email"],)
+        )
+        connection.execute(
+            "DELETE FROM verified_identities WHERE id = ?", (identity_id,)
+        )
+
+    return "", 204
 
 
 @app.post("/api/v1/exposure/scan")
