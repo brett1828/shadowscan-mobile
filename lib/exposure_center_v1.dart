@@ -69,7 +69,7 @@ class ExposureApi {
 
   static const baseUrl = String.fromEnvironment(
     'SHADOWSCAN_API_URL',
-    defaultValue: 'http://localhost:8080',
+    defaultValue: 'https://shadowscan-v1-api-production.up.railway.app',
   );
 
   Uri _uri(String path) => Uri.parse('$baseUrl$path');
