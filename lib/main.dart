@@ -402,79 +402,9 @@ class _RemediationScreenState extends State<RemediationScreen> {
   String get _storageSlug => widget.remediation.title
       .toLowerCase()
       .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-      .replaceAll(RegExp(r'^_+|_+
+      .replaceAll(RegExp(r'^_+|_+$'), '');
 
-class DailyTipCard extends StatelessWidget {
-  const DailyTipCard({super.key});
-  @override
-  Widget build(BuildContext context) => const Card(child: Padding(padding: EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(Icons.lightbulb_outline, color: red), SizedBox(width: 8), Text('Cyber Tip of the Day', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))]), SizedBox(height: 12), Text('Never approve an MFA prompt you did not initiate.', style: TextStyle(fontWeight: FontWeight.w700)), SizedBox(height: 8), Text('Deny unexpected prompts and review recent sign-ins.')])));
-}
-
-class LearnPage extends StatelessWidget {
-  const LearnPage({super.key});
-  @override
-  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.fromLTRB(18, 18, 18, 120), children: const [
-        Text('Learn', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-        SizedBox(height: 12),
-        DailyTipCard(),
-        SizedBox(height: 16),
-        LearnTile(Icons.password, 'Passwords', 'Use unique credentials and a password manager.'),
-        LearnTile(Icons.phishing, 'Phishing', 'Recognize deceptive messages and urgent requests.'),
-        LearnTile(Icons.wifi_lock, 'Public Wi-Fi', 'Reduce risk on shared networks.'),
-        LearnTile(Icons.verified_user_outlined, 'Multi-factor authentication', 'Protect important accounts with another factor.'),
-      ]);
-}
-
-class LearnTile extends StatelessWidget {
-  const LearnTile(this.icon, this.title, this.summary, {super.key});
-  final IconData icon;
-  final String title;
-  final String summary;
-  @override
-  Widget build(BuildContext context) => Card(child: ListTile(leading: Icon(icon, color: red), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(summary)));
-}
-
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key, required this.record});
-  final AssessmentRecord record;
-  String date(DateTime value) => '${value.month}/${value.day}/${value.year}';
-  @override
-  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.fromLTRB(18, 18, 18, 120), children: [
-        const Text('Settings', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 16),
-        Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Assessment status', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
-          Text('Last assessment: ${date(record.completedAt)}'),
-          Text('Next assessment available: ${date(record.nextRetake)}'),
-          const SizedBox(height: 16),
-          FilledButton.icon(onPressed: record.canRetake ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AssessmentScreen(isRetake: true))) : null, icon: const Icon(Icons.refresh), label: Text(record.canRetake ? 'RETAKE ASSESSMENT' : 'RETAKE AVAILABLE IN 30 DAYS')),
-        ]))),
-        const Card(child: ListTile(leading: Icon(Icons.privacy_tip_outlined, color: red), title: Text('Privacy'), subtitle: Text('Assessment and verified identity references are stored on this device.'))),
-      ]);
-}
-
-class PlaceholderPage extends StatelessWidget {
-  const PlaceholderPage(this.icon, this.title, this.message, {super.key});
-  final IconData icon;
-  final String title;
-  final String message;
-  @override
-  Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 58, color: red), const SizedBox(height: 16), Text(title, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)), const SizedBox(height: 8), Text(message, textAlign: TextAlign.center)])));
-}
-), '');
-
-  Color get _severityColor {
-    switch (widget.remediation.severity.toLowerCase()) {
-      case 'critical':
-        return Colors.redAccent;
-      case 'high':
-        return Colors.deepOrangeAccent;
-      case 'medium':
-        return Colors.amber;
-      default:
-        return Colors.blueAccent;
-    }
-  }
+  Color get _severityColor => _prioritySeverityColor(widget.remediation.severity);
 
   @override
   void initState() {
