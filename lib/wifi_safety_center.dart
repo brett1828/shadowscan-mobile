@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const _red = Color(0xFFE31B23);
 
+enum _WifiAnswer { yes, no, notSure }
+
 class WifiSafetyCenter extends StatefulWidget {
   const WifiSafetyCenter({super.key});
 
@@ -11,12 +13,13 @@ class WifiSafetyCenter extends StatefulWidget {
 }
 
 class _WifiSafetyCenterState extends State<WifiSafetyCenter> {
-  bool? _publicNetwork;
-  bool? _verifiedName;
-  bool? _securedNetwork;
-  bool? _autoJoinDisabled;
-  bool? _sensitiveActivityProtected;
+  _WifiAnswer? _publicNetwork;
+  _WifiAnswer? _verifiedName;
+  _WifiAnswer? _securedNetwork;
+  _WifiAnswer? _autoJoinDisabled;
+  _WifiAnswer? _sensitiveActivityProtected;
   int? _lastScore;
+  bool _showHowItWorks = false;
 
   bool get _complete =>
       _publicNetwork != null &&
@@ -37,14 +40,51 @@ class _WifiSafetyCenterState extends State<WifiSafetyCenter> {
     if (mounted) setState(() => _lastScore = score);
   }
 
+  int _penaltyFor(
+    _WifiAnswer? answer, {
+    required int noPenalty,
+    required int unsurePenalty,
+  }) {
+    if (answer == _WifiAnswer.no) return noPenalty;
+    if (answer == _WifiAnswer.notSure) return unsurePenalty;
+    return 0;
+  }
+
   Future<void> _calculate() async {
     if (!_complete) return;
+
+    final isPublic = _publicNetwork == _WifiAnswer.yes;
+    final publicUnknown = _publicNetwork == _WifiAnswer.notSure;
     var score = 100;
-    if (_publicNetwork == true) score -= 20;
-    if (_verifiedName == false) score -= 25;
-    if (_securedNetwork == false) score -= 25;
-    if (_autoJoinDisabled == false) score -= 15;
-    if (_sensitiveActivityProtected == false) score -= 15;
+
+    if (publicUnknown) score -= 5;
+
+    score -= _penaltyFor(
+      _verifiedName,
+      noPenalty: isPublic ? 20 : 10,
+      unsurePenalty: isPublic ? 10 : 5,
+    );
+    score -= _penaltyFor(
+      _securedNetwork,
+      noPenalty: isPublic ? 20 : 12,
+      unsurePenalty: isPublic ? 10 : 6,
+    );
+    score -= _penaltyFor(
+      _autoJoinDisabled,
+      noPenalty: 15,
+      unsurePenalty: 8,
+    );
+
+    if (_sensitiveActivityProtected == _WifiAnswer.no) {
+      score -= isPublic ? 30 : (publicUnknown ? 20 : 10);
+    } else if (_sensitiveActivityProtected == _WifiAnswer.notSure) {
+      score -= isPublic ? 15 : (publicUnknown ? 10 : 5);
+    }
+
+    if (isPublic && _securedNetwork == _WifiAnswer.no) {
+      score -= 5;
+    }
+
     score = score.clamp(0, 100).toInt();
 
     final prefs = await SharedPreferences.getInstance();
@@ -55,9 +95,48 @@ class _WifiSafetyCenterState extends State<WifiSafetyCenter> {
 
   String get _rating {
     final score = _lastScore ?? 0;
-    if (score >= 85) return 'Low observed risk';
+    if (score >= 85) return 'Lower observed risk';
     if (score >= 65) return 'Use caution';
     return 'Higher observed risk';
+  }
+
+  void _showSettingsHelp(String title, List<String> steps) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF12161C),
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 12),
+              ...steps.asMap().entries.map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            radius: 14,
+                            backgroundColor: _red,
+                            foregroundColor: Colors.white,
+                            child: Text('${entry.key + 1}', style: const TextStyle(fontSize: 12)),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(entry.value)),
+                        ],
+                      ),
+                    ),
+                  ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -68,23 +147,46 @@ class _WifiSafetyCenterState extends State<WifiSafetyCenter> {
         const Text('Wi-Fi Safety', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
         const SizedBox(height: 6),
         const Text(
-          'Review the network you are using before sensitive activity.',
+          'Run a guided safety check before using this network for sensitive activity.',
           style: TextStyle(color: Colors.white70),
         ),
         const SizedBox(height: 16),
-        const Card(
+        Card(
           child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Row(
+            padding: const EdgeInsets.all(16),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, color: _red),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'On iPhone and in a browser, ShadowScan cannot reliably inspect every Wi-Fi security property. This V1 check combines what you know about the network with practical security guidance.',
-                  ),
+                const Row(
+                  children: [
+                    Icon(Icons.shield_outlined, color: _red),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Guided network safety check',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Answer a few questions about the network and how you plan to use it. ShadowScan combines those answers into practical guidance.',
+                  style: TextStyle(color: Colors.white70, height: 1.4),
+                ),
+                TextButton.icon(
+                  onPressed: () => setState(() => _showHowItWorks = !_showHowItWorks),
+                  icon: Icon(_showHowItWorks ? Icons.expand_less : Icons.info_outline),
+                  label: Text(_showHowItWorks ? 'HIDE DETAILS' : 'HOW THIS WORKS'),
+                ),
+                if (_showHowItWorks)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Mobile operating systems and browsers do not expose every Wi-Fi security property to apps. V1 therefore uses a user-assisted check instead of pretending to perform a network scan it cannot reliably complete.',
+                      style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.4),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -97,8 +199,8 @@ class _WifiSafetyCenterState extends State<WifiSafetyCenter> {
               child: Row(
                 children: [
                   SizedBox(
-                    width: 76,
-                    height: 76,
+                    width: 78,
+                    height: 78,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
@@ -108,7 +210,13 @@ class _WifiSafetyCenterState extends State<WifiSafetyCenter> {
                           color: _red,
                           backgroundColor: Colors.white12,
                         ),
-                        Text('$_lastScore', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('$_lastScore', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
+                            const Text('/ 100', style: TextStyle(fontSize: 10, color: Colors.white60)),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -118,7 +226,12 @@ class _WifiSafetyCenterState extends State<WifiSafetyCenter> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Network Safety Score', style: TextStyle(fontWeight: FontWeight.w800)),
-                        Text(_rating, style: const TextStyle(color: _red)),
+                        Text(_rating, style: const TextStyle(color: _red, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'A guided snapshot of this network and your planned behavior.',
+                          style: TextStyle(color: Colors.white60, fontSize: 12),
+                        ),
                       ],
                     ),
                   ),
@@ -130,28 +243,28 @@ class _WifiSafetyCenterState extends State<WifiSafetyCenter> {
         const SizedBox(height: 18),
         const Text('Quick network check', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
-        _YesNoQuestion(
+        _AnswerQuestion(
           title: 'Is this a public or shared network?',
           value: _publicNetwork,
           onChanged: (value) => setState(() => _publicNetwork = value),
         ),
-        _YesNoQuestion(
+        _AnswerQuestion(
           title: 'Did you verify the exact network name?',
           value: _verifiedName,
           onChanged: (value) => setState(() => _verifiedName = value),
         ),
-        _YesNoQuestion(
+        _AnswerQuestion(
           title: 'Is the network protected rather than completely open?',
           value: _securedNetwork,
           onChanged: (value) => setState(() => _securedNetwork = value),
         ),
-        _YesNoQuestion(
+        _AnswerQuestion(
           title: 'Is automatic connection to open networks disabled?',
           value: _autoJoinDisabled,
           onChanged: (value) => setState(() => _autoJoinDisabled = value),
         ),
-        _YesNoQuestion(
-          title: 'For sensitive activity, are you using a trusted connection such as cellular data or a reputable VPN?',
+        _AnswerQuestion(
+          title: 'For sensitive activity, are you using cellular data or a trusted VPN when appropriate?',
           value: _sensitiveActivityProtected,
           onChanged: (value) => setState(() => _sensitiveActivityProtected = value),
         ),
@@ -174,31 +287,50 @@ class _WifiSafetyCenterState extends State<WifiSafetyCenter> {
           'Confirm the SSID',
           'Lookalike network names can be used to impersonate legitimate public Wi-Fi.',
         ),
-        const _GuidanceTile(
+        _GuidanceTile(
           Icons.phonelink_lock,
           'Keep auto-join restricted',
           'Prevent the device from silently reconnecting to open networks.',
+          actionLabel: 'SHOW ME HOW',
+          onTap: () => _showSettingsHelp(
+            'Restrict automatic Wi-Fi connections',
+            const [
+              'On iPhone, open Settings → Wi-Fi and review Ask to Join Networks and Auto-Join Hotspot settings.',
+              'For a saved network, tap the info button beside its name and turn off Auto-Join if you do not want automatic reconnection.',
+              'On Android, open Wi-Fi or Network settings and review automatic connection options for saved or open networks.',
+            ],
+          ),
         ),
-        const _GuidanceTile(
+        _GuidanceTile(
           Icons.privacy_tip_outlined,
           'Use Private Wi-Fi Address when available',
           'Randomized device addressing can reduce passive tracking across networks.',
+          actionLabel: 'SHOW ME HOW',
+          onTap: () => _showSettingsHelp(
+            'Private Wi-Fi Address',
+            const [
+              'On iPhone, open Settings → Wi-Fi.',
+              'Tap the info button beside the connected network.',
+              'Review the Private Wi-Fi Address setting and keep it enabled when appropriate.',
+              'On Android, look for a Privacy or MAC address option in the saved network settings and use randomized MAC addressing when available.',
+            ],
+          ),
         ),
       ],
     );
   }
 }
 
-class _YesNoQuestion extends StatelessWidget {
-  const _YesNoQuestion({
+class _AnswerQuestion extends StatelessWidget {
+  const _AnswerQuestion({
     required this.title,
     required this.value,
     required this.onChanged,
   });
 
   final String title;
-  final bool? value;
-  final ValueChanged<bool> onChanged;
+  final _WifiAnswer? value;
+  final ValueChanged<_WifiAnswer> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -209,13 +341,15 @@ class _YesNoQuestion extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            SegmentedButton<bool>(
+            const SizedBox(height: 10),
+            SegmentedButton<_WifiAnswer>(
+              showSelectedIcon: false,
               segments: const [
-                ButtonSegment(value: true, label: Text('Yes')),
-                ButtonSegment(value: false, label: Text('No')),
+                ButtonSegment(value: _WifiAnswer.yes, label: Text('Yes')),
+                ButtonSegment(value: _WifiAnswer.no, label: Text('No')),
+                ButtonSegment(value: _WifiAnswer.notSure, label: Text('Not sure')),
               ],
-              selected: value == null ? <bool>{} : <bool>{value!},
+              selected: value == null ? <_WifiAnswer>{} : <_WifiAnswer>{value!},
               emptySelectionAllowed: true,
               onSelectionChanged: (selection) {
                 if (selection.isNotEmpty) onChanged(selection.first);
@@ -229,11 +363,19 @@ class _YesNoQuestion extends StatelessWidget {
 }
 
 class _GuidanceTile extends StatelessWidget {
-  const _GuidanceTile(this.icon, this.title, this.body);
+  const _GuidanceTile(
+    this.icon,
+    this.title,
+    this.body, {
+    this.actionLabel,
+    this.onTap,
+  });
 
   final IconData icon;
   final String title;
   final String body;
+  final String? actionLabel;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +383,21 @@ class _GuidanceTile extends StatelessWidget {
       child: ListTile(
         leading: Icon(icon, color: _red),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text(body),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(body),
+            if (actionLabel != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                actionLabel!,
+                style: const TextStyle(color: _red, fontSize: 12, fontWeight: FontWeight.w800),
+              ),
+            ],
+          ],
+        ),
+        trailing: onTap == null ? null : const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
   }
