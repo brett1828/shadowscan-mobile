@@ -11,6 +11,7 @@ const red = Color(0xFFE31B23);
 const surface = Color(0xFF12161C);
 const background = Color(0xFF07090D);
 const retakeWindow = Duration(days: 30);
+const assessmentVersion = 2;
 
 class ShadowScanApp extends StatelessWidget {
   const ShadowScanApp({super.key});
@@ -54,7 +55,8 @@ class _AppBootstrapState extends State<AppBootstrap> {
     final score = prefs.getInt('assessment_score');
     final date = prefs.getString('assessment_completed_at');
     final answers = prefs.getStringList('assessment_answers');
-    if (score != null && date != null && answers != null) {
+    final version = prefs.getInt('assessment_version');
+    if (version == assessmentVersion && score != null && date != null && answers != null) {
       record = AssessmentRecord(score: score, completedAt: DateTime.parse(date), answers: answers.map(int.parse).toList());
     }
     if (mounted) setState(() => loading = false);
@@ -115,7 +117,7 @@ class PrivacyScreen extends StatelessWidget {
           const Center(child: QsbLogo(size: 150)),
           const InfoTile(Icons.lock_outline, 'Private by design', 'ShadowScan only asks for information needed to produce your security posture.'),
           const InfoTile(Icons.visibility_off_outlined, 'No password collection', 'Never enter a password into ShadowScan.'),
-          const InfoTile(Icons.tune, 'Transparent scoring', 'Your Shadow Score is calculated from your answers.'),
+          const InfoTile(Icons.tune, 'Transparent scoring', 'Your Baseline Shadow Score is calculated from your assessment answers.'),
           const SizedBox(height: 16),
           FilledButton(
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AssessmentScreen())),
@@ -156,12 +158,12 @@ class AssessmentQuestion {
 
 const questions = <AssessmentQuestion>[
   AssessmentQuestion('Do you use a password manager?', 'Password managers make unique passwords easier to maintain.', ['Yes', 'Sometimes', 'No'], [15, 7, 0], Remediation('Start using a password manager', 'High', 'Unique passwords prevent one breach from compromising several accounts.', ['Choose a reputable password manager.', 'Replace reused passwords.', 'Protect the manager with MFA.'])),
-  AssessmentQuestion('Is MFA enabled on your primary email?', 'Your email controls password resets for many accounts.', ['Yes', 'Some accounts', 'No'], [20, 8, 0], Remediation('Protect your primary email with MFA', 'Critical', 'Your email can reset passwords for other services.', ['Enable authenticator-app or passkey MFA.', 'Save recovery codes.', 'Review recent sign-ins.'])),
+  AssessmentQuestion('Is MFA enabled on your primary email?', 'Your email controls password resets for many accounts.', ['Yes', 'Not sure', 'No'], [20, 8, 0], Remediation('Protect your primary email with MFA', 'Critical', 'Your email can reset passwords for other services.', ['Enable authenticator-app or passkey MFA.', 'Save recovery codes.', 'Review recent sign-ins.'])),
   AssessmentQuestion('Do you reuse passwords?', 'One breach can affect multiple accounts.', ['Never', 'Sometimes', 'Often'], [15, 7, 0], Remediation('Eliminate password reuse', 'High', 'Attackers test stolen passwords across many sites.', ['Change reused passwords.', 'Prioritize email and financial accounts.', 'Generate unique passwords.'])),
   AssessmentQuestion('Are automatic updates enabled?', 'Updates close known vulnerabilities.', ['Yes', 'Not sure', 'No'], [12, 5, 0], Remediation('Enable automatic updates', 'Medium', 'Outdated software may contain known exploitable flaws.', ['Enable system updates.', 'Enable app updates.', 'Remove unsupported apps.'])),
-  AssessmentQuestion('Do you use a screen lock or biometrics?', 'A device lock protects lost devices.', ['Yes', 'Sometimes', 'No'], [10, 4, 0], Remediation('Secure your lock screen', 'High', 'Unlocked devices expose personal data.', ['Set a strong passcode.', 'Enable biometrics.', 'Hide notification previews.'])),
+  AssessmentQuestion('Is a screen lock or biometric lock enabled on your primary device?', 'A strong device lock protects your data if the device is lost or stolen.', ['Yes', 'Not sure', 'No'], [10, 4, 0], Remediation('Secure your lock screen', 'High', 'Unlocked devices expose personal data.', ['Set a strong passcode.', 'Enable biometrics.', 'Hide notification previews.'])),
   AssessmentQuestion('Do you regularly back up important data?', 'Backups reduce loss and ransomware impact.', ['Yes', 'Sometimes', 'No'], [13, 6, 0], Remediation('Create reliable backups', 'Medium', 'Backups help recovery from deletion, theft, and ransomware.', ['Enable encrypted backup.', 'Keep a separate copy.', 'Test restoration.'])),
-  AssessmentQuestion('How often do you use public Wi-Fi without a VPN?', 'Open networks increase interception risk.', ['Rarely', 'Sometimes', 'Often'], [15, 7, 0], Remediation('Reduce public Wi-Fi exposure', 'Medium', 'Public networks can be impersonated or monitored.', ['Prefer cellular data.', 'Verify network names.', 'Avoid sensitive activity.'])),
+  AssessmentQuestion('How do you protect sensitive activity on public or shared Wi-Fi?', 'Untrusted networks can be impersonated or monitored, even when most web traffic is encrypted.', ['I verify the network and use cellular or a trusted VPN for sensitive activity', 'I take some precautions', 'I usually connect without extra precautions'], [15, 7, 0], Remediation('Use safer habits on public Wi-Fi', 'Medium', 'Public or shared networks can be impersonated or monitored, so sensitive activity needs extra care.', ['Verify the exact network name.', 'Prefer cellular data for sensitive activity.', 'Use a trusted VPN when appropriate.', 'Disable auto-join to open networks.'])),
 ];
 
 class AssessmentScreen extends StatefulWidget {
@@ -187,6 +189,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     await prefs.setInt('assessment_score', score);
     await prefs.setStringList('assessment_answers', record.answers.map((e) => '$e').toList());
     await prefs.setString('assessment_completed_at', record.completedAt.toIso8601String());
+    await prefs.setInt('assessment_version', assessmentVersion);
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => DashboardScreen(record: record)), (_) => false);
   }
@@ -207,7 +210,24 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
           const SizedBox(height: 10),
           Text(q.detail, style: const TextStyle(color: Colors.white70)),
           const SizedBox(height: 24),
-          ...List.generate(q.options.length, (i) => Card(child: RadioListTile<int>(value: i, groupValue: answers[index], activeColor: red, title: Text(q.options[i]), onChanged: (value) => setState(() => answers[index] = value)))),
+          ...List.generate(q.options.length, (i) {
+            final isSelected = answers[index] == i;
+            return Card(
+              color: isSelected ? red.withValues(alpha: .14) : surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: isSelected ? red : Colors.transparent, width: 1.4),
+              ),
+              child: RadioListTile<int>(
+                value: i,
+                groupValue: answers[index],
+                activeColor: red,
+                selected: isSelected,
+                title: Text(q.options[i], style: TextStyle(fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500)),
+                onChanged: (value) => setState(() => answers[index] = value),
+              ),
+            );
+          }),
           const Spacer(),
           FilledButton(onPressed: answers[index] == null ? null : next, child: Text(index == questions.length - 1 ? 'SAVE MY SHADOW SCORE' : 'NEXT')),
         ]),
@@ -249,7 +269,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       SettingsPage(record: widget.record),
     ];
     return Scaffold(
-      appBar: AppBar(automaticallyImplyLeading: false, title: const Row(children: [QsbLogo(size: 54), SizedBox(width: 12), Text('ShadowScan')])),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        toolbarHeight: 76,
+        title: const Row(
+          children: [
+            QsbLogo(size: 66),
+            SizedBox(width: 8),
+            Text('ShadowScan', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ),
       body: IndexedStack(index: selected, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selected,
@@ -278,9 +308,9 @@ class HomePage extends StatelessWidget {
         const Text('Your digital-risk posture', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
         const SizedBox(height: 14),
         Card(child: Padding(padding: const EdgeInsets.all(18), child: Row(children: [
-          SizedBox(width: 94, height: 94, child: Stack(alignment: Alignment.center, children: [CircularProgressIndicator(value: score / 100, strokeWidth: 9, color: red, backgroundColor: Colors.white12), Text('$score', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900))])),
+          SizedBox(width: 94, height: 94, child: Stack(alignment: Alignment.center, children: [CircularProgressIndicator(value: score / 100, strokeWidth: 9, color: red, backgroundColor: Colors.white12), Column(mainAxisSize: MainAxisSize.min, children: [Text('$score', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)), const Text('/ 100', style: TextStyle(fontSize: 11, color: Colors.white60, fontWeight: FontWeight.w700))])])),
           const SizedBox(width: 18),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Shadow Score', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)), Text(risk, style: const TextStyle(color: red, fontWeight: FontWeight.w700)), const Text('Based on your security assessment.')])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Baseline Shadow Score', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)), Text(risk, style: const TextStyle(color: red, fontWeight: FontWeight.w700)), const SizedBox(height: 2), const Text('Based on your security assessment.'), const SizedBox(height: 6), Text('${findingIndexes.length} priority action${findingIndexes.length == 1 ? '' : 's'} identified', style: const TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w600))])),
         ]))),
         const SizedBox(height: 18),
         const Text('Priority actions', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
