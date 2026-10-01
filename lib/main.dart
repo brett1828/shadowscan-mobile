@@ -288,7 +288,7 @@ class HomePage extends StatelessWidget {
         if (findingIndexes.isEmpty)
           const Card(child: ListTile(leading: Icon(Icons.verified_user_outlined, color: red), title: Text('Strong assessment results')))
         else
-          ...findingIndexes.take(3).map((i) => Card(child: ListTile(leading: const Icon(Icons.warning_amber, color: red), title: Text(questions[i].remediation.title), subtitle: Text('${questions[i].remediation.severity} priority'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RemediationScreen(remediation: questions[i].remediation))))))),
+          ...findingIndexes.take(3).map((i) => Card(child: ListTile(leading: const Icon(Icons.warning_amber, color: red), title: Text(questions[i].remediation.title), subtitle: Text('${questions[i].remediation.severity} priority'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RemediationScreen(remediation: questions[i].remediation)))))),
         const SizedBox(height: 12),
         const DailyTipCard(),
       ]);
