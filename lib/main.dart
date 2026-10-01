@@ -329,6 +329,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+Color _prioritySeverityColor(String severity) {
+  switch (severity.toLowerCase()) {
+    case 'critical':
+      return Colors.redAccent;
+    case 'high':
+      return Colors.deepOrangeAccent;
+    case 'medium':
+      return Colors.amber;
+    default:
+      return Colors.blueAccent;
+  }
+}
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key, required this.score, required this.findingIndexes});
   final int score;
@@ -350,7 +363,25 @@ class HomePage extends StatelessWidget {
         if (findingIndexes.isEmpty)
           const Card(child: ListTile(leading: Icon(Icons.verified_user_outlined, color: red), title: Text('Strong assessment results')))
         else
-          ...findingIndexes.take(3).map((i) => Card(child: ListTile(leading: const Icon(Icons.warning_amber, color: red), title: Text(questions[i].remediation.title), subtitle: Text('${questions[i].remediation.severity} priority'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RemediationScreen(remediation: questions[i].remediation)))))),
+          ...findingIndexes.take(3).map((i) {
+            final remediation = questions[i].remediation;
+            final severityColor = _prioritySeverityColor(remediation.severity);
+            return Card(
+              child: ListTile(
+                leading: Icon(Icons.warning_amber_rounded, color: severityColor),
+                title: Text(remediation.title),
+                subtitle: Text(
+                  '${remediation.severity.toUpperCase()} PRIORITY',
+                  style: TextStyle(color: severityColor, fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => RemediationScreen(remediation: remediation)),
+                ),
+              ),
+            );
+          }),
         const SizedBox(height: 12),
         const DailyTipCard(),
       ]);
