@@ -19,6 +19,7 @@ class _LearnCenterState extends State<LearnCenter> {
       icon: Icons.password,
       title: 'Passwords',
       summary: 'Create unique credentials and protect them with a password manager.',
+      durationMinutes: 4,
       points: [
         'Use a unique password for every important account.',
         'Prefer long generated passwords instead of predictable variations.',
@@ -31,6 +32,7 @@ class _LearnCenterState extends State<LearnCenter> {
       icon: Icons.phishing,
       title: 'Phishing',
       summary: 'Recognize deceptive messages, links, attachments, and urgent requests.',
+      durationMinutes: 5,
       points: [
         'Slow down when a message creates urgency or pressure.',
         'Verify payment, password-reset, and login requests through a separate channel.',
@@ -43,6 +45,7 @@ class _LearnCenterState extends State<LearnCenter> {
       icon: Icons.wifi_lock,
       title: 'Public Wi-Fi',
       summary: 'Reduce risk on shared and unfamiliar wireless networks.',
+      durationMinutes: 4,
       points: [
         'Confirm the exact network name with staff before connecting.',
         'Prefer cellular data for sensitive transactions when practical.',
@@ -55,6 +58,7 @@ class _LearnCenterState extends State<LearnCenter> {
       icon: Icons.verified_user_outlined,
       title: 'Multi-factor authentication',
       summary: 'Add another layer of protection to high-value accounts.',
+      durationMinutes: 4,
       points: [
         'Prefer passkeys, security keys, or authenticator apps where available.',
         'Never approve an MFA prompt you did not initiate.',
@@ -128,20 +132,47 @@ class _LearnCenterState extends State<LearnCenter> {
         const Text('Awareness categories', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
         ...lessons.map(
-          (lesson) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Card(
-              child: ListTile(
-                leading: Icon(lesson.icon, color: _red),
-                title: Text(lesson.title, style: const TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text(lesson.summary),
-                trailing: _completed.contains(lesson.id)
-                    ? const Icon(Icons.check_circle, color: Colors.greenAccent)
-                    : const Icon(Icons.chevron_right),
-                onTap: () => _openLesson(lesson),
+          (lesson) {
+            final complete = _completed.contains(lesson.id);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Card(
+                child: ListTile(
+                  leading: Icon(lesson.icon, color: _red),
+                  title: Text(lesson.title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(lesson.summary),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            '${lesson.durationMinutes} min',
+                            style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            complete ? 'COMPLETED' : 'NOT COMPLETED',
+                            style: TextStyle(
+                              color: complete ? Colors.greenAccent : Colors.white54,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  trailing: complete
+                      ? const Icon(Icons.check_circle, color: Colors.greenAccent)
+                      : const Icon(Icons.chevron_right),
+                  onTap: () => _openLesson(lesson),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
         const SizedBox(height: 18),
         const Text('Quick knowledge check', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
@@ -158,6 +189,7 @@ class CyberLesson {
     required this.icon,
     required this.title,
     required this.summary,
+    required this.durationMinutes,
     required this.points,
   });
 
@@ -165,6 +197,7 @@ class CyberLesson {
   final IconData icon;
   final String title;
   final String summary;
+  final int durationMinutes;
   final List<String> points;
 }
 
@@ -199,7 +232,23 @@ class _LessonScreenState extends State<LessonScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           Icon(widget.lesson.icon, size: 64, color: _red),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            children: [
+              Chip(
+                avatar: const Icon(Icons.schedule, size: 16),
+                label: Text('${widget.lesson.durationMinutes} min'),
+              ),
+              if (_completed)
+                const Chip(
+                  avatar: Icon(Icons.check_circle, size: 16, color: Colors.greenAccent),
+                  label: Text('Completed'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Text(
             widget.lesson.summary,
             textAlign: TextAlign.center,
@@ -276,7 +325,6 @@ class QuizCard extends StatefulWidget {
 
 class _QuizCardState extends State<QuizCard> {
   int? _selected;
-  bool _checked = false;
 
   static const options = <String>[
     'Approve it quickly so the prompt goes away',
@@ -284,8 +332,22 @@ class _QuizCardState extends State<QuizCard> {
     'Ignore every future MFA prompt',
   ];
 
+  String get _feedback {
+    switch (_selected) {
+      case 0:
+        return 'That is unsafe. Approving an unexpected prompt can authorize an attacker. This technique is often called MFA fatigue or push bombing.';
+      case 1:
+        return 'Correct. Deny the unexpected prompt, then review recent sign-ins, active sessions, password security, and MFA settings.';
+      case 2:
+        return 'Not quite. Ignoring every future prompt can hide legitimate activity. Deny unexpected prompts and investigate why they appeared.';
+      default:
+        return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final correct = _selected == 1;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -299,29 +361,51 @@ class _QuizCardState extends State<QuizCard> {
             const SizedBox(height: 10),
             ...List.generate(
               options.length,
-              (index) => RadioListTile<int>(
-                value: index,
-                groupValue: _selected,
-                title: Text(options[index]),
-                onChanged: (value) => setState(() {
-                  _selected = value;
-                  _checked = false;
-                }),
-              ),
+              (index) {
+                final selected = _selected == index;
+                return Card(
+                  color: selected ? _red.withValues(alpha: .12) : Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: selected ? _red : Colors.transparent),
+                  ),
+                  child: RadioListTile<int>(
+                    value: index,
+                    groupValue: _selected,
+                    activeColor: _red,
+                    title: Text(options[index]),
+                    onChanged: (value) => setState(() => _selected = value),
+                  ),
+                );
+              },
             ),
-            FilledButton(
-              onPressed: _selected == null ? null : () => setState(() => _checked = true),
-              child: const Text('CHECK ANSWER'),
-            ),
-            if (_checked) ...[
-              const SizedBox(height: 12),
-              Text(
-                _selected == 1
-                    ? 'Correct. Deny the prompt and investigate the account.'
-                    : 'Not quite. Unexpected MFA prompts can indicate an attempted account takeover.',
-                style: TextStyle(
-                  color: _selected == 1 ? Colors.greenAccent : _red,
-                  fontWeight: FontWeight.w700,
+            if (_selected != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: (correct ? Colors.greenAccent : _red).withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: (correct ? Colors.greenAccent : _red).withValues(alpha: .55),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      correct ? Icons.check_circle_outline : Icons.info_outline,
+                      color: correct ? Colors.greenAccent : _red,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _feedback,
+                        style: const TextStyle(fontWeight: FontWeight.w600, height: 1.4),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
