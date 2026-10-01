@@ -1,331 +1,574 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const ShadowScanApp());
-}
+import 'exposure_center_v1.dart';
+import 'learn_center.dart';
+import 'wifi_safety_center.dart';
+
+void main() => runApp(const ShadowScanApp());
+
+const red = Color(0xFFE31B23);
+const surface = Color(0xFF12161C);
+const background = Color(0xFF07090D);
+const retakeWindow = Duration(days: 30);
+const assessmentVersion = 2;
 
 class ShadowScanApp extends StatelessWidget {
   const ShadowScanApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    const seed = Color(0xFF7CFF6B);
-
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'ShadowScan',
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seed,
+  Widget build(BuildContext context) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'ShadowScan Mobile',
+        theme: ThemeData(
           brightness: Brightness.dark,
-          surface: const Color(0xFF11161D),
+          scaffoldBackgroundColor: background,
+          colorScheme: const ColorScheme.dark(
+            primary: red,
+            secondary: red,
+            surface: surface,
+            onSurface: Colors.white,
+          ),
+          useMaterial3: true,
+          cardTheme: const CardThemeData(
+            color: surface,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+          ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: surface,
+            foregroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+          ),
+          navigationBarTheme: NavigationBarThemeData(
+            backgroundColor: const Color(0xFF11151A),
+            surfaceTintColor: Colors.transparent,
+            indicatorColor: red.withValues(alpha: .28),
+            labelTextStyle: WidgetStateProperty.all(
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+            iconTheme: WidgetStateProperty.resolveWith(
+              (states) => IconThemeData(
+                color: states.contains(WidgetState.selected) ? Colors.white : Colors.white70,
+              ),
+            ),
+          ),
+          chipTheme: const ChipThemeData(
+            backgroundColor: surface,
+            surfaceTintColor: Colors.transparent,
+            side: BorderSide(color: Color(0xFF3A424C)),
+          ),
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(backgroundColor: red, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(52)),
+          ),
         ),
-        scaffoldBackgroundColor: const Color(0xFF080B10),
-        useMaterial3: true,
-        cardTheme: const CardThemeData(
-          color: Color(0xFF11161D),
-          elevation: 0,
-          margin: EdgeInsets.zero,
+        home: const AppBootstrap(),
+      );
+}
+
+class AppBootstrap extends StatefulWidget {
+  const AppBootstrap({super.key});
+  @override
+  State<AppBootstrap> createState() => _AppBootstrapState();
+}
+
+class _AppBootstrapState extends State<AppBootstrap> {
+  AssessmentRecord? record;
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final score = prefs.getInt('assessment_score');
+    final date = prefs.getString('assessment_completed_at');
+    final answers = prefs.getStringList('assessment_answers');
+    final version = prefs.getInt('assessment_version');
+    if (version == assessmentVersion && score != null && date != null && answers != null) {
+      record = AssessmentRecord(score: score, completedAt: DateTime.parse(date), answers: answers.map(int.parse).toList());
+    }
+    if (mounted) setState(() => loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: red)));
+    return record == null ? const SplashScreen() : DashboardScreen(record: record!);
+  }
+}
+
+class QsbLogo extends StatelessWidget {
+  const QsbLogo({super.key, this.size = 190});
+  final double size;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: size,
+        height: size,
+        child: Image.asset('assets/images/qsb_logo.png', fit: BoxFit.contain, filterQuality: FilterQuality.high),
+      );
+}
+
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(children: [
+              const Spacer(),
+              const QsbLogo(size: 280),
+              const SizedBox(height: 18),
+              const Text('SHADOWSCAN', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, letterSpacing: 2)),
+              const Text('MOBILE', style: TextStyle(fontSize: 16, letterSpacing: 8, color: Colors.white70)),
+              const SizedBox(height: 18),
+              const Text('Personal cybersecurity. Everyday protection.', textAlign: TextAlign.center, style: TextStyle(fontSize: 17, color: Colors.white70)),
+              const Spacer(),
+              FilledButton(
+                onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PrivacyScreen())),
+                child: const Text('GET STARTED'),
+              ),
+              const SizedBox(height: 14),
+              const Text('Quantum Shadow BlackOps', style: TextStyle(color: Colors.white54)),
+            ]),
+          ),
         ),
+      );
+}
+
+class PrivacyScreen extends StatelessWidget {
+  const PrivacyScreen({super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Your privacy. Our priority.')),
+        body: ListView(padding: const EdgeInsets.all(20), children: [
+          const Center(child: QsbLogo(size: 150)),
+          const InfoTile(Icons.lock_outline, 'Private by design', 'ShadowScan only asks for information needed to produce your security posture.'),
+          const InfoTile(Icons.visibility_off_outlined, 'No password collection', 'Never enter a password into ShadowScan.'),
+          const InfoTile(Icons.tune, 'Transparent scoring', 'Your Baseline Shadow Score is calculated from your assessment answers.'),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AssessmentScreen())),
+            child: const Text('CONTINUE TO ASSESSMENT'),
+          ),
+        ]),
+      );
+}
+
+class InfoTile extends StatelessWidget {
+  const InfoTile(this.icon, this.title, this.body, {super.key});
+  final IconData icon;
+  final String title;
+  final String body;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Card(child: ListTile(leading: Icon(icon, color: red), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)), subtitle: Text(body))),
+      );
+}
+
+class Remediation {
+  const Remediation(this.title, this.severity, this.why, this.steps);
+  final String title;
+  final String severity;
+  final String why;
+  final List<String> steps;
+}
+
+class AssessmentQuestion {
+  const AssessmentQuestion(this.title, this.detail, this.options, this.points, this.remediation);
+  final String title;
+  final String detail;
+  final List<String> options;
+  final List<int> points;
+  final Remediation remediation;
+}
+
+const questions = <AssessmentQuestion>[
+  AssessmentQuestion('Do you use a password manager?', 'Password managers make unique passwords easier to maintain.', ['Yes', 'Sometimes', 'No'], [15, 7, 0], Remediation('Start using a password manager', 'High', 'Unique passwords prevent one breach from compromising several accounts.', ['Choose a reputable password manager.', 'Replace reused passwords.', 'Protect the manager with MFA.'])),
+  AssessmentQuestion('Is MFA enabled on your primary email?', 'Your email controls password resets for many accounts.', ['Yes', 'Not sure', 'No'], [20, 8, 0], Remediation('Protect your primary email with MFA', 'Critical', 'Your email can reset passwords for other services.', ['Enable authenticator-app or passkey MFA.', 'Save recovery codes.', 'Review recent sign-ins.'])),
+  AssessmentQuestion('Do you reuse passwords?', 'One breach can affect multiple accounts.', ['Never', 'Sometimes', 'Often'], [15, 7, 0], Remediation('Eliminate password reuse', 'High', 'Attackers test stolen passwords across many sites.', ['Change reused passwords.', 'Prioritize email and financial accounts.', 'Generate unique passwords.'])),
+  AssessmentQuestion('Are automatic updates enabled?', 'Updates close known vulnerabilities.', ['Yes', 'Not sure', 'No'], [12, 5, 0], Remediation('Enable automatic updates', 'Medium', 'Outdated software may contain known exploitable flaws.', ['Enable system updates.', 'Enable app updates.', 'Remove unsupported apps.'])),
+  AssessmentQuestion('Is a screen lock or biometric lock enabled on your primary device?', 'A strong device lock protects your data if the device is lost or stolen.', ['Yes', 'Not sure', 'No'], [10, 4, 0], Remediation('Secure your lock screen', 'High', 'Unlocked devices expose personal data.', ['Set a strong passcode.', 'Enable biometrics.', 'Hide notification previews.'])),
+  AssessmentQuestion('Do you regularly back up important data?', 'Backups reduce loss and ransomware impact.', ['Yes', 'Sometimes', 'No'], [13, 6, 0], Remediation('Create reliable backups', 'Medium', 'Backups help recovery from deletion, theft, and ransomware.', ['Enable encrypted backup.', 'Keep a separate copy.', 'Test restoration.'])),
+  AssessmentQuestion('How do you protect sensitive activity on public or shared Wi-Fi?', 'Untrusted networks can be impersonated or monitored, even when most web traffic is encrypted.', ['I verify the network and use cellular or a trusted VPN for sensitive activity', 'I take some precautions', 'I usually connect without extra precautions'], [15, 7, 0], Remediation('Use safer habits on public Wi-Fi', 'Medium', 'Public or shared networks can be impersonated or monitored, so sensitive activity needs extra care.', ['Verify the exact network name.', 'Prefer cellular data for sensitive activity.', 'Use a trusted VPN when appropriate.', 'Disable auto-join to open networks.'])),
+];
+
+class AssessmentScreen extends StatefulWidget {
+  const AssessmentScreen({super.key, this.isRetake = false});
+  final bool isRetake;
+  @override
+  State<AssessmentScreen> createState() => _AssessmentScreenState();
+}
+
+class _AssessmentScreenState extends State<AssessmentScreen> {
+  int index = 0;
+  final answers = List<int?>.filled(questions.length, null);
+
+  Future<void> next() async {
+    if (answers[index] == null) return;
+    if (index < questions.length - 1) {
+      setState(() => index++);
+      return;
+    }
+    final score = List.generate(questions.length, (i) => questions[i].points[answers[i]!]).fold<int>(0, (a, b) => a + b);
+    final record = AssessmentRecord(score: score, answers: answers.cast<int>(), completedAt: DateTime.now());
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('assessment_score', score);
+    await prefs.setStringList('assessment_answers', record.answers.map((e) => '$e').toList());
+    await prefs.setString('assessment_completed_at', record.completedAt.toIso8601String());
+    await prefs.setInt('assessment_version', assessmentVersion);
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => DashboardScreen(record: record)), (_) => false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = questions[index];
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.isRetake ? 'Retake assessment' : 'Cybersecurity assessment')),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          LinearProgressIndicator(value: (index + 1) / questions.length, color: red),
+          const SizedBox(height: 10),
+          Text('${index + 1} of ${questions.length}'),
+          const SizedBox(height: 28),
+          Text(q.title, style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          Text(q.detail, style: const TextStyle(color: Colors.white70)),
+          const SizedBox(height: 24),
+          ...List.generate(q.options.length, (i) {
+            final isSelected = answers[index] == i;
+            return Card(
+              color: isSelected ? red.withValues(alpha: .14) : surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: isSelected ? red : Colors.transparent, width: 1.4),
+              ),
+              child: RadioListTile<int>(
+                value: i,
+                groupValue: answers[index],
+                activeColor: red,
+                selected: isSelected,
+                title: Text(q.options[i], style: TextStyle(fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500)),
+                onChanged: (value) => setState(() => answers[index] = value),
+              ),
+            );
+          }),
+          const Spacer(),
+          FilledButton(onPressed: answers[index] == null ? null : next, child: Text(index == questions.length - 1 ? 'SAVE MY SHADOW SCORE' : 'NEXT')),
+        ]),
       ),
-      home: const DashboardScreen(),
     );
   }
 }
 
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+class AssessmentRecord {
+  const AssessmentRecord({required this.score, required this.answers, required this.completedAt});
+  final int score;
+  final List<int> answers;
+  final DateTime completedAt;
+  DateTime get nextRetake => completedAt.add(retakeWindow);
+  bool get canRetake => !DateTime.now().isBefore(nextRetake);
+}
 
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key, required this.record});
+  final AssessmentRecord record;
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _selectedIndex = 0;
-
-  static const _pages = <Widget>[
-    _HomePage(),
-    _PlaceholderPage(
-      icon: Icons.public,
-      title: 'Exposure',
-      message: 'Breach monitoring and verified identities will live here.',
-    ),
-    _PlaceholderPage(
-      icon: Icons.wifi_tethering,
-      title: 'Wi-Fi Safety',
-      message: 'Current-network checks and safety guidance will live here.',
-    ),
-    _PlaceholderPage(
-      icon: Icons.school_outlined,
-      title: 'Learn',
-      message: 'Daily tips, awareness lessons, and micro-quizzes will live here.',
-    ),
-  ];
+  int selected = 0;
 
   @override
   Widget build(BuildContext context) {
+    final findingIndexes = <int>[];
+    for (var i = 0; i < widget.record.answers.length; i++) {
+      if (questions[i].points[widget.record.answers[i]] < questions[i].points.first * .75) findingIndexes.add(i);
+    }
+    final pages = [
+      HomePage(score: widget.record.score, findingIndexes: findingIndexes),
+      const ExposureCenter(),
+      const WifiSafetyCenter(),
+      const LearnCenter(),
+      SettingsPage(record: widget.record),
+    ];
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        toolbarHeight: 76,
         title: const Row(
           children: [
-            Icon(Icons.shield_moon_outlined),
-            SizedBox(width: 10),
-            Text('ShadowScan'),
+            QsbLogo(size: 66),
+            SizedBox(width: 8),
+            Text('ShadowScan', style: TextStyle(fontSize: 27, fontWeight: FontWeight.w700)),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: () {},
-            icon: const Badge(
-              label: Text('2'),
-              child: Icon(Icons.notifications_none),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
-      body: IndexedStack(index: _selectedIndex, children: _pages),
+      body: IndexedStack(index: selected, children: pages),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() => _selectedIndex = index);
-        },
+        selectedIndex: selected,
+        onDestinationSelected: (value) => setState(() => selected = value),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.public), label: 'Exposure'),
           NavigationDestination(icon: Icon(Icons.wifi), label: 'Wi-Fi'),
           NavigationDestination(icon: Icon(Icons.school_outlined), label: 'Learn'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
       ),
     );
   }
 }
 
-class _HomePage extends StatelessWidget {
-  const _HomePage();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-      children: const [
-        _WelcomeHeader(),
-        SizedBox(height: 16),
-        _ScoreCard(),
-        SizedBox(height: 16),
-        _SectionTitle(title: 'Priority actions', actionLabel: 'View all'),
-        SizedBox(height: 10),
-        _PriorityAction(
-          icon: Icons.phonelink_lock,
-          title: 'Enable MFA on your primary email',
-          severity: 'High priority',
-        ),
-        SizedBox(height: 10),
-        _PriorityAction(
-          icon: Icons.password,
-          title: 'Replace a reused password',
-          severity: 'High priority',
-        ),
-        SizedBox(height: 16),
-        _DailyTipCard(),
-        SizedBox(height: 16),
-        _SectionTitle(title: 'Latest activity'),
-        SizedBox(height: 10),
-        _ActivityCard(),
-      ],
-    );
+Color _prioritySeverityColor(String severity) {
+  switch (severity.toLowerCase()) {
+    case 'critical':
+      return Colors.redAccent;
+    case 'high':
+      return Colors.deepOrangeAccent;
+    case 'medium':
+      return Colors.amber;
+    default:
+      return Colors.blueAccent;
   }
 }
 
-class _WelcomeHeader extends StatelessWidget {
-  const _WelcomeHeader();
+class HomePage extends StatelessWidget {
+  const HomePage({super.key, required this.score, required this.findingIndexes});
+  final int score;
+  final List<int> findingIndexes;
+  String get risk => score >= 85 ? 'Low risk' : score >= 65 ? 'Moderate risk' : score >= 45 ? 'Elevated risk' : 'High risk';
 
   @override
-  Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Good afternoon, Brett', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-        SizedBox(height: 4),
-        Text('Here is your current digital-risk posture.'),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.fromLTRB(16, 14, 16, 120), children: [
+        const Text('Your digital-risk posture', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 14),
+        Card(child: Padding(padding: const EdgeInsets.all(18), child: Row(children: [
+          SizedBox(width: 94, height: 94, child: Stack(alignment: Alignment.center, children: [CircularProgressIndicator(value: score / 100, strokeWidth: 9, color: red, backgroundColor: Colors.white12), Column(mainAxisSize: MainAxisSize.min, children: [Text('$score', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)), const Text('/ 100', style: TextStyle(fontSize: 11, color: Colors.white60, fontWeight: FontWeight.w700))])])),
+          const SizedBox(width: 18),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Baseline Shadow Score', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)), Text(risk, style: const TextStyle(color: red, fontWeight: FontWeight.w700)), const SizedBox(height: 2), const Text('Based on your security assessment.'), const SizedBox(height: 6), Text('${findingIndexes.length} priority action${findingIndexes.length == 1 ? '' : 's'} identified', style: const TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w600))])),
+        ]))),
+        const SizedBox(height: 18),
+        const Text('Priority actions', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 10),
+        if (findingIndexes.isEmpty)
+          const Card(child: ListTile(leading: Icon(Icons.verified_user_outlined, color: red), title: Text('Strong assessment results')))
+        else
+          ...findingIndexes.take(3).map((i) {
+            final remediation = questions[i].remediation;
+            final severityColor = _prioritySeverityColor(remediation.severity);
+            return Card(
+              child: ListTile(
+                leading: Icon(Icons.warning_amber_rounded, color: severityColor),
+                title: Text(remediation.title),
+                subtitle: Text(
+                  '${remediation.severity.toUpperCase()} PRIORITY',
+                  style: TextStyle(color: severityColor, fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => RemediationScreen(remediation: remediation)),
+                ),
+              ),
+            );
+          }),
+        const SizedBox(height: 12),
+        const DailyTipCard(),
+      ]);
 }
 
-class _ScoreCard extends StatelessWidget {
-  const _ScoreCard();
+class RemediationScreen extends StatefulWidget {
+  const RemediationScreen({super.key, required this.remediation});
+  final Remediation remediation;
+
+  @override
+  State<RemediationScreen> createState() => _RemediationScreenState();
+}
+
+class _RemediationScreenState extends State<RemediationScreen> {
+  List<bool> _completed = const [];
+  bool _loading = true;
+
+  String get _storageSlug => widget.remediation.title
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+
+  Color get _severityColor => _prioritySeverityColor(widget.remediation.severity);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProgress();
+  }
+
+  Future<void> _loadProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    final values = List<bool>.generate(
+      widget.remediation.steps.length,
+      (index) => prefs.getBool('remediation_${_storageSlug}_$index') ?? false,
+    );
+    if (mounted) {
+      setState(() {
+        _completed = values;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _setCompleted(int index, bool value) async {
+    final next = [..._completed];
+    next[index] = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('remediation_${_storageSlug}_$index', value);
+    if (mounted) setState(() => _completed = next);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: red)),
+      );
+    }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 92,
-              height: 92,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    value: 0.72,
-                    strokeWidth: 9,
-                    backgroundColor: colors.surfaceContainerHighest,
-                  ),
-                  const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('72', style: TextStyle(fontSize: 29, fontWeight: FontWeight.w800)),
-                      Text('/100', style: TextStyle(fontSize: 11)),
-                    ],
-                  ),
-                ],
+    final completedCount = _completed.where((value) => value).length;
+    final progress = widget.remediation.steps.isEmpty
+        ? 0.0
+        : completedCount / widget.remediation.steps.length;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Priority action')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Text(widget.remediation.title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Chip(
+              avatar: Icon(Icons.warning_amber_rounded, color: _severityColor, size: 18),
+              side: BorderSide(color: _severityColor.withValues(alpha: .7)),
+              label: Text(
+                '${widget.remediation.severity.toUpperCase()} SEVERITY',
+                style: TextStyle(color: _severityColor, fontWeight: FontWeight.w800),
               ),
             ),
-            const SizedBox(width: 18),
-            const Expanded(
+          ),
+          const SizedBox(height: 18),
+          Text(widget.remediation.why, style: const TextStyle(fontSize: 17, height: 1.45)),
+          const SizedBox(height: 20),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Shadow Score', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                  SizedBox(height: 4),
-                  Text('Moderate risk', style: TextStyle(fontWeight: FontWeight.w600)),
-                  SizedBox(height: 7),
-                  Text('Resolve two high-priority findings to strengthen your posture.'),
+                  Text(
+                    '$completedCount of ${widget.remediation.steps.length} steps completed',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 10),
+                  LinearProgressIndicator(value: progress, color: _severityColor),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Completion is tracked separately and does not change your Baseline Shadow Score until reassessment or a verified signal confirms the improvement.',
+                    style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.35),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          ...widget.remediation.steps.asMap().entries.map(
+                (entry) => Card(
+                  child: CheckboxListTile(
+                    value: _completed[entry.key],
+                    activeColor: _severityColor,
+                    secondary: CircleAvatar(
+                      backgroundColor: _completed[entry.key]
+                          ? _severityColor.withValues(alpha: .18)
+                          : Colors.white10,
+                      foregroundColor: _completed[entry.key] ? _severityColor : Colors.white70,
+                      child: _completed[entry.key]
+                          ? const Icon(Icons.check)
+                          : Text('${entry.key + 1}'),
+                    ),
+                    title: Text(entry.value),
+                    onChanged: (value) => _setCompleted(entry.key, value ?? false),
+                  ),
+                ),
+              ),
+        ],
       ),
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, this.actionLabel});
-
-  final String title;
-  final String? actionLabel;
-
+class DailyTipCard extends StatelessWidget {
+  const DailyTipCard({super.key});
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
-        if (actionLabel != null) Text(actionLabel!, style: TextStyle(color: Theme.of(context).colorScheme.primary)),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => const Card(child: Padding(padding: EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(Icons.lightbulb_outline, color: red), SizedBox(width: 8), Text('Cyber Tip of the Day', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))]), SizedBox(height: 12), Text('Never approve an MFA prompt you did not initiate.', style: TextStyle(fontWeight: FontWeight.w700)), SizedBox(height: 8), Text('Deny unexpected prompts and review recent sign-ins.')])));
 }
 
-class _PriorityAction extends StatelessWidget {
-  const _PriorityAction({required this.icon, required this.title, required this.severity});
+class LearnPage extends StatelessWidget {
+  const LearnPage({super.key});
+  @override
+  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.fromLTRB(18, 18, 18, 120), children: const [
+        Text('Learn', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+        SizedBox(height: 12),
+        DailyTipCard(),
+        SizedBox(height: 16),
+        LearnTile(Icons.password, 'Passwords', 'Use unique credentials and a password manager.'),
+        LearnTile(Icons.phishing, 'Phishing', 'Recognize deceptive messages and urgent requests.'),
+        LearnTile(Icons.wifi_lock, 'Public Wi-Fi', 'Reduce risk on shared networks.'),
+        LearnTile(Icons.verified_user_outlined, 'Multi-factor authentication', 'Protect important accounts with another factor.'),
+      ]);
+}
 
+class LearnTile extends StatelessWidget {
+  const LearnTile(this.icon, this.title, this.summary, {super.key});
   final IconData icon;
   final String title;
-  final String severity;
-
+  final String summary;
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(child: Icon(icon)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(severity),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () {},
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Card(child: ListTile(leading: Icon(icon, color: red), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)), subtitle: Text(summary)));
 }
 
-class _DailyTipCard extends StatelessWidget {
-  const _DailyTipCard();
-
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key, required this.record});
+  final AssessmentRecord record;
+  String date(DateTime value) => '${value.month}/${value.day}/${value.year}';
   @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.lightbulb_outline, color: primary),
-                const SizedBox(width: 8),
-                const Text('Cyber Tip of the Day', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Never approve an MFA prompt you did not initiate.',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            const Text('Repeated prompts may be an MFA-fatigue attack. Deny the request, change your password, and review recent sign-ins.'),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              children: const [
-                Chip(label: Text('Account security')),
-                Chip(label: Text('Easy action')),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.fromLTRB(18, 18, 18, 120), children: [
+        const Text('Settings', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 16),
+        Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Assessment status', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+          Text('Last assessment: ${date(record.completedAt)}'),
+          Text('Next assessment available: ${date(record.nextRetake)}'),
+          const SizedBox(height: 16),
+          FilledButton.icon(onPressed: record.canRetake ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AssessmentScreen(isRetake: true))) : null, icon: const Icon(Icons.refresh), label: Text(record.canRetake ? 'RETAKE ASSESSMENT' : 'RETAKE AVAILABLE IN 30 DAYS')),
+        ]))),
+        const Card(child: ListTile(leading: Icon(Icons.privacy_tip_outlined, color: red), title: Text('Privacy'), subtitle: Text('Assessment and verified identity references are stored on this device.'))),
+      ]);
 }
 
-class _ActivityCard extends StatelessWidget {
-  const _ActivityCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Card(
-      child: ListTile(
-        leading: CircleAvatar(child: Icon(Icons.mark_email_read_outlined)),
-        title: Text('No new exposure alerts'),
-        subtitle: Text('Monitoring status will appear after you verify an email address.'),
-      ),
-    );
-  }
-}
-
-class _PlaceholderPage extends StatelessWidget {
-  const _PlaceholderPage({required this.icon, required this.title, required this.message});
-
+class PlaceholderPage extends StatelessWidget {
+  const PlaceholderPage(this.icon, this.title, this.message, {super.key});
   final IconData icon;
   final String title;
   final String message;
-
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 58, color: red), const SizedBox(height: 16), Text(title, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)), const SizedBox(height: 8), Text(message, textAlign: TextAlign.center)])));
 }

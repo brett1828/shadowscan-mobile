@@ -1,0 +1,24 @@
+{
+  "name": "ShadowScan Flutter",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "ShadowScan Web Preview",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "flutter config --enable-web && flutter create --platforms=web --project-name shadowscan_mobile . && flutter pub get",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Dart-Code.dart-code",
+        "Dart-Code.flutter"
+      ]
+    }
+  },
+  "remoteUser": "vscode"
+}
